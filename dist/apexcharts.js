@@ -16680,9 +16680,14 @@
           var seriesBound = elGrid.getBoundingClientRect();
           var clientX = ttCtx.e.type === 'touchmove' ? ttCtx.e.changedTouches[0].clientX : ttCtx.e.clientX;
           x = clientX - seriesBound.left;
+          var ttCtxCenterWidth = ttCtx.tooltipRect.ttWidth / 2;
 
-          if (x > w.globals.gridWidth / 2) {
-            x = x - ttCtx.tooltipRect.ttWidth;
+          if (clientX - ttCtxCenterWidth > seriesBound.left && clientX + ttCtxCenterWidth < seriesBound.right) {
+            x = x - ttCtxCenterWidth;
+          } else if (x + ttCtxCenterWidth + seriesBound.left > seriesBound.right) {
+            x = seriesBound.right - (ttCtx.tooltipRect.ttWidth + seriesBound.left);
+          } else if (x - ttCtxCenterWidth < seriesBound.left) {
+            x = 0;
           }
 
           y = ttCtx.e.clientY + w.globals.translateY - seriesBound.top;

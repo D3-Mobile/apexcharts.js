@@ -195,9 +195,16 @@ export default class Position {
       const clientX = ttCtx.e.type === 'touchmove' ? ttCtx.e.changedTouches[0].clientX : ttCtx.e.clientX;
 
       x = clientX - seriesBound.left
-      if (x > w.globals.gridWidth / 2) {
-        x = x - ttCtx.tooltipRect.ttWidth
+      const ttCtxCenterWidth = ttCtx.tooltipRect.ttWidth / 2
+        
+      if (clientX - ttCtxCenterWidth > seriesBound.left && clientX + ttCtxCenterWidth < seriesBound.right) {
+        x = x - ttCtxCenterWidth
+      } else if (x + ttCtxCenterWidth + seriesBound.left > seriesBound.right) {
+        x = seriesBound.right - (ttCtx.tooltipRect.ttWidth + seriesBound.left)
+      } else if ( x - ttCtxCenterWidth < seriesBound.left ) {
+        x = 0
       }
+      
       y = ttCtx.e.clientY + w.globals.translateY - seriesBound.top
       if (y > w.globals.gridHeight / 2) {
         y = y - ttCtx.tooltipRect.ttHeight
