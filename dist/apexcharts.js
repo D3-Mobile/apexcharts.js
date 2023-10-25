@@ -3520,6 +3520,8 @@
               targets: undefined
             },
             stacked: false,
+            stackOnlyBar: true,
+            // mixed chart with stacked bars and line series - incorrect line draw #907
             stackType: 'normal',
             toolbar: {
               show: true,
@@ -4125,6 +4127,7 @@
             enabled: true,
             enabledOnSeries: undefined,
             shared: true,
+            hideEmptySeries: true,
             followCursor: false,
             // when disabled, the tooltip will show on top of the series instead of mouse position
             intersect: false,
@@ -11696,13 +11699,19 @@
 
           indicesOfSeriesInGroup.forEach(function (i) {
             for (var j = 0; j < gl.series[gl.maxValsInArrayIndex].length; j++) {
+              var _gl$series, _gl$series$i;
+
               if (typeof stackedPoss[group][j] === 'undefined') {
                 stackedPoss[group][j] = 0;
                 stackedNegs[group][j] = 0;
               }
 
-              if (gl.series[i][j] !== null && Utils$1.isNumber(gl.series[i][j])) {
-                gl.series[i][j] > 0 ? stackedPoss[group][j] += parseFloat(gl.series[i][j]) + 0.0001 : stackedNegs[group][j] += parseFloat(gl.series[i][j]);
+              var stackSeries = !_this.w.config.chart.stackOnlyBar || ((_gl$series = gl.series) === null || _gl$series === void 0 ? void 0 : (_gl$series$i = _gl$series[i]) === null || _gl$series$i === void 0 ? void 0 : _gl$series$i.type) === 'bar';
+
+              if (stackSeries) {
+                if (gl.series[i][j] !== null && Utils$1.isNumber(gl.series[i][j])) {
+                  gl.series[i][j] > 0 ? stackedPoss[group][j] += parseFloat(gl.series[i][j]) + 0.0001 : stackedNegs[group][j] += parseFloat(gl.series[i][j]);
+                }
               }
             }
           });
@@ -16341,6 +16350,19 @@
 
         if (shared && ttItemsChildren[0]) {
           // hide when no Val or series collapsed
+          if (w.config.tooltip.hideEmptySeries) {
+            var ttItemMarker = ttItems[t].querySelector('.apexcharts-tooltip-marker');
+            var ttItemText = ttItems[t].querySelector('.apexcharts-tooltip-text');
+
+            if (parseFloat(val) == 0) {
+              ttItemMarker.style.display = 'none';
+              ttItemText.style.display = 'none';
+            } else {
+              ttItemMarker.style.display = 'block';
+              ttItemText.style.display = 'block';
+            }
+          }
+
           if (typeof val === 'undefined' || val === null || w.globals.ancillaryCollapsedSeriesIndices.indexOf(t) > -1 || w.globals.collapsedSeriesIndices.indexOf(t) > -1) {
             ttItemsChildren[0].parentNode.style.display = 'none';
           } else {
@@ -16656,7 +16678,8 @@
         if (w.config.tooltip.followCursor) {
           var elGrid = ttCtx.getElGrid();
           var seriesBound = elGrid.getBoundingClientRect();
-          x = ttCtx.e.clientX - seriesBound.left;
+          var clientX = ttCtx.e.type === 'touchmove' ? ttCtx.e.changedTouches[0].clientX : ttCtx.e.clientX;
+          x = clientX - seriesBound.left;
 
           if (x > w.globals.gridWidth / 2) {
             x = x - ttCtx.tooltipRect.ttWidth;
@@ -23521,9 +23544,10 @@
             prevY = _ref3.prevY,
             lineYPosition = _ref3.lineYPosition;
         var w = this.w;
+        var stackSeries = w.config.chart.stacked && (!w.config.chart.stackOnlyBar || series[i] && series[i].type && series[i].type === 'bar');
 
         if (typeof ((_series$i = series[i]) === null || _series$i === void 0 ? void 0 : _series$i[0]) !== 'undefined') {
-          if (w.config.chart.stacked) {
+          if (stackSeries) {
             if (i > 0) {
               // 1st y value of previous series
               lineYPosition = this.lineCtx.prevSeriesY[i - 1][0];
@@ -23538,7 +23562,7 @@
           prevY = lineYPosition - series[i][0] / this.lineCtx.yRatio[this.lineCtx.yaxisIndex] + (this.lineCtx.isReversed ? series[i][0] / this.lineCtx.yRatio[this.lineCtx.yaxisIndex] : 0) * 2;
         } else {
           // the first value in the current series is null
-          if (w.config.chart.stacked && i > 0 && typeof series[i][0] === 'undefined') {
+          if (stackSeries && i > 0 && typeof series[i][0] === 'undefined') {
             // check for undefined value (undefined value will occur when we clear the series while user clicks on legend to hide serieses)
             for (var s = i - 1; s >= 0; s--) {
               // for loop to get to 1st previous value until we get it
@@ -23630,7 +23654,7 @@
    * @returns {String}
    */
 
-  var svgPath = function svgPath(points) {
+  var svgPath = function svgPath(points, chartWidth) {
     var p = '';
 
     for (var i = 0; i < points.length; i++) {
@@ -23639,7 +23663,7 @@
       var n = point.length;
       var pn = prevPoint === null || prevPoint === void 0 ? void 0 : prevPoint.length;
 
-      if (i > 1 && Math.abs(point[n - 2] - prevPoint[pn - 2]) < 30) {
+      if (i > 1 && Math.abs(point[n - 2] - prevPoint[pn - 2]) < chartWidth / 25) {
         // fallback to quadratic curve if the x distance is too small
         // or if the curve goes backward too much
         p += "Q".concat(point[0], ", ").concat(point[1]);
@@ -24155,7 +24179,8 @@
     }, {
       key: "_iterateOverDataPoints",
       value: function _iterateOverDataPoints(_ref3) {
-        var _this = this;
+        var _this = this,
+            _this$w$config$series;
 
         var type = _ref3.type,
             series = _ref3.series,
@@ -24193,6 +24218,7 @@
         };
 
         var y2 = y;
+        var stackSeries = w.config.chart.stacked && (!this.w.config.chart.stackOnlyBar || ((_this$w$config$series = this.w.config.series[realIndex]) === null || _this$w$config$series === void 0 ? void 0 : _this$w$config$series.type) === 'bar');
 
         for (var j = 0; j < iterations; j++) {
           var isNull = typeof series[i][j + 1] === 'undefined' || series[i][j + 1] === null;
@@ -24210,7 +24236,7 @@
             x = x + this.xDivision;
           }
 
-          if (w.config.chart.stacked) {
+          if (stackSeries) {
             if (i > 0 && w.globals.collapsedSeries.length < w.config.series.length - 1) {
               // a collapsed series in a stacked bar chart may provide wrong result for the next series, hence find the prevIndex of prev series which is not collapsed - fixes apexcharts.js#1372
               var prevIndex = function prevIndex(pi) {
@@ -24409,14 +24435,14 @@
 
           if (shouldRenderMonotone && smoothInputs.length > 1) {
             var points = spline.points(smoothInputs);
-            linePath += svgPath(points);
+            linePath += svgPath(points, w.globals.gridWidth);
 
             if (series[i][0] === null) {
               // if the first dataPoint is null, we use the linePath directly
               areaPath = linePath;
             } else {
               // else, we append the areaPath
-              areaPath += svgPath(points);
+              areaPath += svgPath(points, w.globals.gridWidth);
             }
 
             if (type === 'rangeArea' && isRangeStart) {
@@ -24428,7 +24454,7 @@
                 return [xArrjInversed[i], y2ArrjInversed[i]];
               });
               var pointsY2 = spline.points(smoothInputsY2);
-              linePath += svgPath(pointsY2); // in range area, we don't have separate line and area path
+              linePath += svgPath(pointsY2, w.globals.gridWidth); // in range area, we don't have separate line and area path
 
               areaPath = linePath;
             } else {
